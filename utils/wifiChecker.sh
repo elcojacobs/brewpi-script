@@ -25,15 +25,15 @@ if [ "$1" = "install" ]; then
         printf '%s\n' 0a "auto wlan0" . w | ed -s /etc/network/interfaces
     fi
 
-    ### Check if enableWlan is already added to cron file and, if not, add it
-    grep "enableWlan.sh" /etc/cron.d/brewpi > /dev/null
+    ### Check if wifiChecker is already added to cron file and, if not, add it
+    grep "wifiChecker.sh" /etc/cron.d/brewpi > /dev/null
     if [ $? -eq 0 ]; then
          echo "Cron entry already exists, skipping..."
     else
         ### Look at cron entry to find location of log files
         logPath=$(grep brewpi.py /etc/cron.d/brewpi|sed -r 's/.*(1>.*)$/\1/')|sed -r 's/>/>>/' >/dev/null
         echo "Adding cron job for Wifi checking to /etc/cron.d/brewpi"
-        echo "*/10 * * * * $DIR/enableWlan.sh $logPath" >> /etc/cron.d/brewpi
+        echo "*/10 * * * * $DIR/wifiChecker.sh $logPath" >> /etc/cron.d/brewpi
     fi
     echo "Wifi checking script installed! No further action is needed."
     echo "You can run ./wifiChecker.sh from $DIR to manually test if you like."
