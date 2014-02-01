@@ -66,6 +66,12 @@ if [ -s /tmp/oldcron ]; then
 fi
 rm /tmp/oldcron||warn
 
+### Use this section to check for other brewpi-related entries, to add them back later
+
+wifi=$(grep -h -m 1 wifiChecker.sh /etc/cron.d/brewpi)
+
+### ### ###
+
 echo -e "\ncopying new cron job to /etc/cron.d/brewpi"
 
 if [[ "$scriptPath" != "/home/brewpi" ]]; then
@@ -75,6 +81,11 @@ else
     sudo cp "$myPath"/brewpi.cron /etc/cron.d/brewpi||die
 fi
 
+### Add in previous brewpi.cron entries
+
+if [[ -n $wifi ]]; then
+    echo -e "$wifi" >> /etc/cron.d/brewpi
+fi
 
 echo -e "Restarting cron"
 sudo /etc/init.d/cron restart||die
