@@ -696,7 +696,8 @@ while run:
 
         # if no new data has been received for serialRequestInteval seconds
         if (time.time() - prevDataTime) >= float(config['interval']):
-            ser.write("t")  # request new from arduino
+            ser.write("t")  # request new from controller
+            prevDataTime += 5 # give the controller some time to respond to prevent requesting twice
 
         elif (time.time() - prevDataTime) > float(config['interval']) + 2 * float(config['interval']):
             #something is wrong: arduino is not responding to data requests
