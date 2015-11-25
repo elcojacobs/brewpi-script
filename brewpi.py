@@ -201,6 +201,7 @@ wwwJsonFileName = ""
 wwwCsvFileName = ""
 lastDay = ""
 day = ""
+localEsjFileName = ""
 
 if logToFiles:
     logPath = util.addSlash(util.scriptPath()) + 'logs/'
@@ -236,6 +237,7 @@ def setFiles():
     global localCsvFileName
     global wwwJsonFileName
     global wwwCsvFileName
+    global localEsjFileName
     global lastDay
     global day
 
@@ -276,6 +278,8 @@ def setFiles():
 
     # create new empty json file
     brewpiJson.newEmptyFile(localJsonFileName)
+
+    localEsjFileName = dataPath + beerFileName + 'ESJ.txt'
 
 def startBeer(beerName):
     if config['dataLogging'] == 'active':
@@ -730,6 +734,7 @@ while run:
         # if no new data has been received for serialRequestInteval seconds
         if (time.time() - prevDataTime) >= float(config['interval']):
             ser.write("t")  # request new from controller
+            ser.write("v")
             prevDataTime += 5 # give the controller some time to respond to prevent requesting twice
 
         elif (time.time() - prevDataTime) > float(config['interval']) + 2 * float(config['interval']):
@@ -784,6 +789,7 @@ while run:
                     csvFile.close()
                     shutil.copyfile(localCsvFileName, wwwCsvFileName)
 
+
                 elif line[0] == 'D':
                     # debug message received
                     try:
@@ -807,6 +813,11 @@ while run:
                 elif line[0] == 'V':
                     # Control settings received
                     cv = line[2:] # keep as string, do not decode
+                    if localEsjFileName:
+                        esjFile = open(localEsjFileName, "a")
+                        esjFile.write(cv)
+                        esjFile.close()
+
                 elif line[0] == 'N':
                     pass  # version number received. Do nothing, just ignore
                 elif line[0] == 'h':
