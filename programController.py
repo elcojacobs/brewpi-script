@@ -155,9 +155,9 @@ def loadBoardsFile(arduinohome):
         printStdErr("Please install it with: sudo apt-get install arduino-core")
     return boardsFileContent
 
-def programController(config, boardType, hexFile, restoreWhat):
+def programController(config, boardType, hexFile, system1File, system2File, restoreWhat):
     programmer = SerialProgrammer.create(config, boardType)
-    return programmer.program(hexFile, restoreWhat)
+    return programmer.program(hexFile, system1File, system2File, restoreWhat)
 
 
 def json_decode_response(line):
@@ -192,7 +192,7 @@ class SerialProgrammer:
         self.versionOld = None
         self.oldSettings = {}
 
-    def program(self, hexFile, restoreWhat):
+    def program(self, hexFile, system1File, system2File, restoreWhat):
         printStdErr("****    %(a)s Program script started    ****" % msg_map)
 
         self.parse_restore_settings(restoreWhat)
@@ -207,21 +207,46 @@ class SerialProgrammer:
             self.retrieve_settings_from_serial()
             self.save_settings_to_file()
 
-        if not self.flash_file(hexFile):
-            return 0
+        if system1File:
+            printStdErr("Flashing system part 1.")
+            if not self.flash_file(system1File):
+                return 0
+
+            printStdErr("Waiting for device to reset.")
+            time.sleep(5) # give time to reboot and process binary
+            if not self.open_serial_with_retry(self.config, 57600, 0.2):
+                printStdErr("Error opening serial port after flashing system part 1. Program script will exit.")
+                printStdErr("If your device stopped working, use flashDfu.py to restore it.")
+                return False
+
+        if system2File:
+            printStdErr("Flashing system part 2.")
+            if not self.flash_file(system2File):
+                return 0
+
+            printStdErr("Waiting for device to reset.")
+            time.sleep(5) # give time to reboot and process binary
+            if not self.open_serial_with_retry(self.config, 57600, 0.2):
+                printStdErr("Error opening serial port after flashing system part 2. Program script will exit.")
+                printStdErr("If your device stopped working, use flashDfu.py to restore it.")
+                return False
+
+        if(hexFile):
+            if not self.flash_file(hexFile):
+                return 0
+
+            printStdErr("Waiting for device to reset.")
+            time.sleep(5) # give time to reboot and process binary
+            if not self.open_serial_with_retry(self.config, 57600, 0.2):
+                printStdErr("Error opening serial port after flashing user part. Program script will exit.")
+                printStdErr("If your device stopped working, use flashDfu.py to restore it.")
+                return False
 
         printStdErr("Waiting for device to reset.")
 
-        # reopen serial port
-        retries = 30
-        self.ser = None
-        while retries and not self.ser:
-            time.sleep(1)
-            self.open_serial(self.config, 57600, 0.2)
-            retries -= 1
-
-        if not self.ser:
+        if not self.open_serial_with_retry(self.config, 57600, 0.2):
             printStdErr("Error opening serial port after programming. Program script will exit. Settings are not restored.")
+            printStdErr("If your device stopped working, use flashDfu.py to restore it.")
             return False
 
         time.sleep(1)
@@ -288,6 +313,17 @@ class SerialProgrammer:
         if self.ser is None:
             return False
         return True
+
+    def open_serial_with_retry(self, config, baud, timeout):
+        # reopen serial port
+        retries = 30
+        self.ser = None
+        while retries:
+            time.sleep(1)
+            if self.open_serial(config, baud, timeout):
+                return True
+            retries -= 1
+        return False
 
     def delay_serial_open(self):
         pass
