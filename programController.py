@@ -128,21 +128,21 @@ class LightYModem:
         packet = name + asbyte(0) + str(size) + ' '
         return self._send_ymodem_packet(packet)
 
-    def transfer(self, file, ymodem, output):
+    def transfer(self, binFile, ymodem, output):
         self.ymodem = ymodem
         """
-        file: the file to transfer via ymodem
+        binFile: the file to transfer via ymodem
         ymodem: the ymodem endpoint (a file-like object supporting write)
         output: a stream for output messages
         """
-        file.seek(0, os.SEEK_END)
-        size = file.tell()
-        file.seek(0, os.SEEK_SET)
-        response = self.send_filename_header("binary", size)
-        while response==LightYModem.ack:
-            response = self.send_packet(file, output)
+        binFile.seek(0, os.SEEK_END)
+        size = binFile.tell()
+        binFile.seek(0, os.SEEK_SET)
+        response = self.send_filename_header("binFile", size)
+        while response==LightYModem.ack or response == 67:
+            response = self.send_packet(binFile, output)
 
-        file.close()
+        binFile.close()
         if response==LightYModem.eot:
             self._send_close()
 
@@ -531,13 +531,27 @@ class SparkProgrammer(SerialProgrammer):
 
     def flash_file(self, hexFile):
         printStdErr("Triggering a firmware update with the ymodem protocol on the controller")
-        self.ser.write("F\n")
-        time.sleep(1)
-        printStdErr("Flashing file {0}".format(hexFile))
-        file = open(hexFile, 'rb')
-        result = LightYModem().transfer(file, self.ser, stderr)
-        file.close()
-        success = result==LightYModem.eot
-        printStdErr("File flashed successfully" if success else "Problem flashing file: " + str(result) +
+        success = False
+        while(self.ser.in_waiting > 0):
+            self.ser.read()
+        self.ser.write('F\n')
+        tries = 0
+        ready = False
+        while tries < 10 and not ready:
+            received = self.ser.read()
+            ready = len(received) == 1 and received[0] == 'C'
+            if not ready:
+                time.sleep(1)
+                tries += 1
+
+        if not ready:
+            printStdErr("Error triggering firmware update over Ymodem.")
+        else:
+            printStdErr("Flashing file {0}".format(hexFile))
+            file = open(hexFile, 'rb')
+            result = LightYModem().transfer(file, self.ser, stderr)
+            file.close()
+            success = result == LightYModem.eot
+            printStdErr("File flashed successfully" if success else "Problem flashing file: " + str(result) +
                                                                 "\nPlease try again.")
         return success
